@@ -1,0 +1,55 @@
+#欧式+single
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+import heapq
+
+def agglomerative_clustering_optimized(X, n_clusters=5):
+    n_samples = X.shape[0]
+
+    # 计算初始距离矩阵
+    distance_matrix = squareform(pdist(X, 'euclidean'))
+
+    # 初始化聚类标签
+    cluster_labels = np.arange(n_samples)
+
+    # 优先队列，存储(距离, (点i, 点j))，用于高效找到最小距离对
+    heap = [(distance_matrix[i, j], (i, j)) for i in range(n_samples) for j in range(i+1, n_samples)]
+    heapq.heapify(heap)
+
+    # 迭代直到只剩下n_clusters个聚类
+    n_clusters_formed = n_samples
+    while n_clusters_formed > n_clusters:
+        # 从堆中找到最小距离对
+        _, (i, j) = heapq.heappop(heap)
+        
+        # 如果这两个点已经属于同一聚类，则跳过
+        if cluster_labels[i] == cluster_labels[j]:
+            continue
+        
+        # 合并聚类
+        new_label = min(cluster_labels[i], cluster_labels[j])
+        old_label = max(cluster_labels[i], cluster_labels[j])
+        cluster_labels[cluster_labels == old_label] = new_label
+        
+        # 更新聚类数目
+        n_clusters_formed -= 1
+        
+        # 更新距离矩阵（此处为了简化，实际应该在堆中更新距离）
+        for k in range(n_samples):
+            if k != i and k != j:
+                new_dist = (distance_matrix[i, k] + distance_matrix[j, k]) / 2
+                heapq.heappush(heap, (new_dist, (min(i, k), max(i, k))))
+                heapq.heappush(heap, (new_dist, (min(j, k), max(j, k))))
+                
+    return cluster_labels
+
+# 使用示例数据集
+iris = load_iris()
+X = iris.data
+
+# 运行优化后的凝聚层次聚类
+labels = agglomerative_clustering_optimized(X, n_clusters=7)
+
+# 计算轮廓系数评估聚类质量
+silhouette_avg = silhouette_score(X, labels)
+print(f"Optimized Silhouette Score: {silhouette_avg:.4f}")
